@@ -1,7 +1,8 @@
-﻿using Elasticsearch.Net;
+using Elasticsearch.Net;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NetWithElasticsearch.Context;
+using NetWithElasticsearch.Generics;
 using Newtonsoft.Json.Linq;
 using System.Reflection.Metadata.Ecma335;
 
@@ -72,15 +73,39 @@ public sealed class ValuesController : ControllerBase
 
         foreach (var travel in travels)
         {
-            tasks.Add(client.IndexAsync<StringResponse>("travels", travel.Id.ToString(), PostData.Serializable(new
+            //tasks.Add(client.IndexAsync<StringResponse>("travels", travel.Id.ToString(), PostData.Serializable(new
+            //{
+            //    travel.Id,
+            //    travel.Title,
+            //    travel.Description
+            //})));
+
+            var response = await client.GetAsync<StringResponse>("travels", travel.Id.ToString());
+
+            if (response.HttpStatusCode != 200)
             {
-                travel.Id,
-                travel.Title,
-                travel.Description
-            })));
+                tasks.Add(client.IndexAsync<StringResponse>("travels", travel.Id.ToString(), PostData.Serializable(travel)));
+            }
         }
 
         await Task.WhenAll(tasks);
+
+        return Ok();
+    }
+
+    [HttpGet("[action]")]
+    public async Task<IActionResult> SyncToElasticWithService()
+    {
+        await ElasticsearchService.SyncToElastic<Travel>("travels", () => context.Travels.ToListAsync());
+
+        return Ok();
+    }
+    
+    [HttpGet("[action]")]
+    public async Task<IActionResult> SyncSingleToElasticWithService()
+    {
+        Travel travel = new();
+        await ElasticsearchService.SyncSingleToElastic<Travel>("travels", travel);
 
         return Ok();
     }
@@ -115,6 +140,14 @@ public sealed class ValuesController : ControllerBase
         }
 
         return Ok(travels.Take(10));
+    }
+
+    [HttpGet("[action]/{value}")]
+    public async Task<IActionResult> GetDataListWithElasticSearchToService(string value)
+    {
+        var response = await ElasticsearchService.GetDataListWithElasticSearch<Travel>("travels", "Description", value);
+
+        return Ok(response.Take(10));
     }
 }
 
