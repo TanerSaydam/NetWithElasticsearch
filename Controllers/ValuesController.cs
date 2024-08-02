@@ -149,5 +149,18 @@ public sealed class ValuesController : ControllerBase
 
         return Ok(response.Take(10));
     }
+
+    //Bu metod, Sql Server Full Text Search özelliği kurulu ise çalışabilir
+    [HttpGet("[action]/{value}")]
+    public async Task<IActionResult> GetDataListWithFullText(string value)
+    {
+        IList<Travel> travels =
+            await context.Set<Travel>()
+            .Where(p => EF.Functions.Contains(p.Description, value))
+            .AsNoTracking()
+            .ToListAsync();
+
+        return Ok(travels.Take(10));
+    }
 }
 
